@@ -5,6 +5,7 @@ import uvloop
 import zmq
 import zmq.asyncio
 from sglang.srt.backend_config import GLOBAL_BACKEND_CONFIG
+from sglang.srt.managers.io_struct import TokenizedGenerateReqInput, FlushCacheReq
 from sglang.srt.managers.router.model_rpc import ModelRpcClient
 from sglang.srt.server_args import PortArgs, ServerArgs
 from sglang.srt.utils import get_exception_traceback
@@ -55,7 +56,12 @@ class RouterManager:
     async def loop_for_recv_requests(self):
         while True:
             recv_req = await self.recv_from_tokenizer.recv_pyobj()
-            self.recv_reqs.append(recv_req)
+            if isinstance(recv_req, TokenizedGenerateReqInput):
+                self.recv_reqs.append(recv_req)
+            elif isinstance(recv_req, FlushCacheReq):
+                await self.model_client.flush_cache()
+            else:
+                raise ValueError(f"Unknown request type: {type(recv_req)}")
 
 
 def start_router_process(

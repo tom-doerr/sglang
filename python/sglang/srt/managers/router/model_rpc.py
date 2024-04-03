@@ -13,11 +13,7 @@ from rpyc.utils.server import ThreadedServer
 from sglang.srt.constrained.fsm_cache import FSMCache
 from sglang.srt.constrained.jump_forward import JumpForwardCache
 from sglang.srt.hf_transformers_utils import get_processor, get_tokenizer
-from sglang.srt.managers.io_struct import (
-    BatchTokenIDOut,
-    FlushCacheReq,
-    TokenizedGenerateReqInput,
-)
+from sglang.srt.managers.io_struct import BatchTokenIDOut, TokenizedGenerateReqInput
 from sglang.srt.managers.router.infer_batch import Batch, ForwardMode, Req
 from sglang.srt.managers.router.model_runner import ModelRunner
 from sglang.srt.managers.router.radix_cache import RadixCache
@@ -146,7 +142,7 @@ class ModelRpcServer:
         self.min_new_token_ratio = min(0.2 * server_args.schedule_conservativeness, 1.0)
         self.new_token_ratio_step = (0.0001, 0.05)  # (down, up)
 
-    def flush_cache(self):
+    def exposed_flush_cache(self):
         if len(self.forward_queue) == 0 and (
             self.running_batch is None or len(self.running_batch.reqs) == 0
         ):
@@ -169,14 +165,10 @@ class ModelRpcServer:
             recv_reqs = obtain(recv_reqs)
 
         try:
-            # Recv requests
+            # Recv and Handle requests
             for recv_req in recv_reqs:
-                if isinstance(recv_req, TokenizedGenerateReqInput):
-                    self.handle_generate_request(recv_req)
-                elif isinstance(recv_req, FlushCacheReq):
-                    self.flush_cache()
-                else:
-                    raise ValueError(f"Invalid request: {recv_req}")
+                assert isinstance(recv_req, TokenizedGenerateReqInput)
+                self.handle_generate_request(recv_req)
 
             # Forward
             self.forward_step()
@@ -654,6 +646,7 @@ class ModelRpcClient:
                 return _func
 
             self.step = async_wrap(self.model_server.exposed_step)
+            self.flush_cache = async_wrap(self.model_server.exposed_flush_cache)
         else:
             with ThreadPoolExecutor(tp_size) as executor:
                 # Launch model processes
@@ -681,6 +674,7 @@ class ModelRpcClient:
                 return _func
 
             self.step = async_wrap("step")
+            self.flush_cache = async_wrap("flush_cache")
 
 
 def _init_service(port):

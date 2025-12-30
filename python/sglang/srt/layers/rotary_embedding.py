@@ -1523,10 +1523,8 @@ class MRotaryEmbedding(RotaryEmbedding):
         assert positions.ndim == 1 or positions.ndim == 2
 
         if positions.ndim == 2 and self.mrope_section and _is_cuda:
-            # NOTE: Use native implementation instead of buggy triton_mrope_fused
-            # The fused kernel has incorrect masking for text-only prompts
-            # where all 3 position rows (T/H/W) are identical
-            return self._forward_native(positions, query, key)
+            # mRoPE with Triton kernel - shape fix in get_rope_index*() was the solution
+            return self._forward_triton(positions, query, key)
         elif _is_npu:
             return self._forward_npu(positions, query, key)
         else:

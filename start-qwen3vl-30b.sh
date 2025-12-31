@@ -1,6 +1,6 @@
 #!/bin/bash
 # Start Qwen3-VL-30B-A3B FP8 server with SGLang
-docker run -d --gpus all --name sglang-qwen3vl-30b \
+docker run -d --rm --gpus all --name sglang-qwen3vl-30b \
   --shm-size 4g -p 30000:30000 \
   -v ~/.cache/huggingface:/root/.cache/huggingface \
   -e TORCH_CUDNN_V8_API_DISABLED=1 \
